@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku Solver</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+        }
+
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 1.5rem;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(9, 50px);
+            gap: 0;
+            background-color: #333;
+            border: 3px solid #333;
+            padding: 0;
+            margin-bottom: 20px;
+        }
+
+        .cell {
+            width: 50px;
+            height: 50px;
+            text-align: center;
+            font-size: 24px;
+            background-color: white;
+            border: 1px solid #bbb;
+            outline: none;
+            padding: 0;
+            margin: 0;
+            cursor: pointer;
+            caret-color: transparent;
+        }
+
+        /* Add thicker borders for 3x3 boxes */
+        .cell:nth-child(3n) {
+            border-right: 2px solid #333;
+        }
+
+        .cell:nth-child(9n) {
+            border-right: none;
+        }
+
+        .row:nth-child(3n) .cell {
+            border-bottom: 2px solid #333;
+        }
+
+        .cell:focus {
+            background-color: #e3f2fd;
+        }
+
+        .cell.solved {
+            color: #2196F3;
+            font-weight: bold;
+        }
+
+        .cell.given {
+            color: #333;
+            font-weight: bold;
+        }
+
+        .cell.error {
+            background-color: #ffebee;
+            color: #f44336;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        #solve-button {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        #clear-button {
+            background-color: #f44336;
+            color: white;
+        }
+
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sudoku Solver</h1>
+        <div id="board">
+            {% for i in range(9) %}
+            <div class="row">
+                {% for j in range(9) %}
+                <input 
+                    type="text" 
+                    class="cell"
+                    id="cell-{{i}}-{{j}}"
+                    maxlength="1"
+                    inputmode="numeric"
+                    pattern="[1-9]"
+                    oninput="validateInput(this)"
+                    onkeydown="handleKeyDown(event, {i}, {j})"
+                />
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="buttons">
+            <button id="solve-button" onclick="solveSudoku()">Solve Puzzle</button>
+            <button id="clear-button" onclick="clearBoard()">Clear Board</button>
+        </div>
+    </div>
+
+    <script>
+        function validateInput(input) {
+            // Remove non-numeric characters and limit to 1-9
+            input.value = input.value.replace(/[^1-9]/g, '');
+            
+            if (input.value) {
+                input.classList.add('given');
+            } else {
+                input.classList.remove('given');
+            }
+            input.classList.remove('error', 'solved');
+        }
+
+        function handleKeyDown(event, i, j) {
+            const key = event.key;
+            
+            if (key === 'ArrowRight' || key === 'ArrowLeft' || 
+                key === 'ArrowUp' || key === 'ArrowDown') {
+                event.preventDefault();
+                
+                const movements = {
+                    'ArrowRight': [0, 1],
+                    'ArrowLeft': [0, -1],
+                    'ArrowUp': [-1, 0],
+                    'ArrowDown': [1, 0]
+                };
+                
+                const [di, dj] = movements[key];
+                moveFocus(i, j, di, dj);
+            }
+            
+            // Handle backspace/delete
+            if (key === 'Backspace' || key === 'Delete') {
+                event.target.value = '';
+                event.target.classList.remove('given', 'solved', 'error');
+            }
+            
+            // Handle numbers 1-9
+            if (/^[1-9]$/.test(key)) {
+                event.target.classList.add('given');
+                event.target.classList.remove('solved', 'error');
+            }
+        }
+
+        function moveFocus(i, j, di, dj) {
+            const newI = (i + di + 9) % 9;
+            const newJ = (j + dj + 9) % 9;
+            const nextCell = document.getElementById(`cell-${newI}-${newJ}`);
+            if (nextCell) {
+                nextCell.focus();
+            }
+        }
+
+        function clearBoard() {
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.value = '';
+                cell.classList.remove('error', 'solved', 'given');
+            });
+        }
+
+        function solveSudoku() {
+            // Reset previous styling
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.classList.remove('error', 'solved');
+            });
+
+            let board = [];
+            for (let i = 0; i < 9; i++) {
+                let row = [];
+                for (let j = 0; j < 9; j++) {
+                    let cellValue = document.getElementById(`cell-${i}-${j}`).value;
+                    row.push(cellValue ? parseInt(cellValue) : 0);
+                }
+                board.push(row);
+            }
+
+            fetch('/solve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ board: board })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.solved) {
+                    let solvedBoard = data.board;
+                    for (let i = 0; i < 9; i++) {
+                        for (let j = 0; j < 9; j++) {
+                            const cell = document.getElementById(`cell-${i}-${j}`);
+                            if (!cell.classList.contains('given')) {
+                                cell.value = solvedBoard[i][j];
+                                cell.classList.add('solved');
+                            }
+                        }
+                    }
+                } else {
+                    // Mark invalid cells and show error message
+                    document.querySelectorAll('.cell').forEach(cell => {
+                        if (cell.value && !cell.classList.contains('given')) {
+                            cell.classList.add('error');
+                        }
+                    });
+                    alert(data.error || "No solution exists for this Sudoku puzzle.");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while solving the puzzle.');
+            });
+        }
+
+        // Initialize the board styles
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.addEventListener('focus', function() {
+                    this.select(); // Select all text when focused
+                });
+            });
+        });
+    </script>
+</body>
+</html>
